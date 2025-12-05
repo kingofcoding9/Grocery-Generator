@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weekly Meal Planner</title>
+    
+    <!-- React and ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+
+    <div id="root"></div>
+
+    <script type="text/babel">
+
+        // --- USER LOGIC SECTION ---
+
+        /**
+         * Helper function to randomize specific ingredients
+         */
+        function generateRandomIngredients(meal){
+            switch (meal){
+                case "dorrito":{
+                    const ingredients = ["1 pound of beef","1 pound of chicken"];
+                    const ingredient = ingredients[Math.floor(Math.random()*ingredients.length)];
+                    return ingredient;
+                }
+                default:
+                    return "";
+            }
+        }
+
+        const weeklyMeals = [
+            "Pizza & Salad",
+            "Dorrito Cassorole",
+            "Tater Tot Cassorole",
+            "Taco Pie W Salad",
+            "Chicken Spahgetti",
+            "Chicken Fried Rice & Sushi",
+            "General Tyso Chichien, Fried Rice & Chow Mein Noodles",
+            "Fried Chicken, Mashed Potatoes, & Mac n Cheese",
+            "Lasagna",
+            "Chicken Alfredo",
+            "Chicken Bacon Ranch Casorole",
+            "Grilled Salmon",
+            "Barbeque Ribs, Corn on the cob, Mashed Potatoes W Potatoe Skins",
+            "Meat Loaf, Cream Corn, Green Beans"
+        ];
+
+        // Note: Function calls inside object values must happen after function definition
+        const ingredientMap = {
+            0: "Frozen pizza from walmart, Family sized salad kit.",
+            1: `2 bags of dorritos, ${generateRandomIngredients("dorrito")}, 1 can of mild rotel, shredded cheese, taco seasoning, cream of chicken soup, sour cream.`,
+            2: `Borrito tortilla, 1 pound of beef, taco seasoning, corn & black beans, shredded cheese.`,
+            3: `1 pound of chicken, spahgetti noodles, 1 block of valvetta cheese, cream of chicken, cream of mushroom, mild rotel, chicken broth`,
+            4: `1 pound of chicken, jasmine rice, frozen peas & carrots`,
+            5: `Store bought sushi.`,
+            6: `Frozen General Tyso Chicken, frozen fried rice, frozen chow mein noodles`,
+            7: `Chicken tenderloins, flavored instant mashed potatoes, mac n cheese.`,
+            8: `Frozen family size lasagna.`,
+            9: `1 pound of chicken, fettuccine noodles, alfredo sauce.`,
+            10: `1 pound of red potatoes, frozen broccoli, 2 pounds of chicken breast, 1 yellow onion, cream cheese, apple cider vinegear, cheddar shredded.`,
+            11: `Salmon`,
+            12: `Ribs, corn on the cob, 5 pound russle brown potatoes.`,
+            13: `Cream corn, green beans, meatloaf.`
+        };
+
+        /**
+         * Selects 7 random meals
+         */
+        function createRandomList(){
+            let array = [];
+            for (let i = 0; i < 7; i++){
+                const choice = Math.floor(Math.random() * weeklyMeals.length);
+                array.push({
+                    id: i, // unique id for list rendering
+                    meal: weeklyMeals[choice],
+                    ingredients: ingredientMap[choice]
+                });
+            }
+            return array;
+        }
+
+        // --- UI COMPONENT SECTION ---
+
+        const App = () => {
+            const [schedule, setSchedule] = React.useState([]);
+            const [checkedItems, setCheckedItems] = React.useState({});
+            const [loaded, setLoaded] = React.useState(false);
+
+            // 1. Load data from Local Storage on startup
+            React.useEffect(() => {
+                const savedSchedule = localStorage.getItem('grocerySchedule');
+                const savedChecks = localStorage.getItem('groceryChecks');
+                
+                if (savedSchedule) {
+                    try {
+                        setSchedule(JSON.parse(savedSchedule));
+                    } catch(e) { console.error("Error loading schedule", e); }
+                }
+                
+                if (savedChecks) {
+                    try {
+                        setCheckedItems(JSON.parse(savedChecks));
+                    } catch(e) { console.error("Error loading checks", e); }
+                }
+                setLoaded(true);
+            }, []);
+
+            // 2. Save data to Local Storage whenever it changes
+            React.useEffect(() => {
+                if (loaded) {
+                    localStorage.setItem('grocerySchedule', JSON.stringify(schedule));
+                    localStorage.setItem('groceryChecks', JSON.stringify(checkedItems));
+                }
+            }, [schedule, checkedItems, loaded]);
+
+            // Handler to generate the menu
+            const handleGenerate = () => {
+                if (schedule.length > 0 && !confirm("This will overwrite your current list. Are you sure?")) {
+                    return;
+                }
+                const newSchedule = createRandomList();
+                setSchedule(newSchedule);
+                setCheckedItems({}); // Reset checks
+            };
+
+            // Handler to toggle checkbox state
+            const toggleCheck = (mealId, ingredientIndex) => {
+                const key = `${mealId}-${ingredientIndex}`;
+                setCheckedItems(prev => ({
+                    ...prev,
+                    [key]: !prev[key]
+                }));
+            };
+
+            // Handler to Download Text File
+            const handleDownload = () => {
+                if (schedule.length === 0) return;
+
+                let textContent = "WEEKLY GROCERY LIST\n===================\n\n";
+
+                schedule.forEach((day, index) => {
+                    textContent += `Day ${index + 1}: ${day.meal}\n`;
+                    const ingredientList = day.ingredients
+                        ? day.ingredients.split(',').map(i => i.trim().replace(/\.$/, ''))
+                        : [];
+                    
+                    ingredientList.forEach((ing, i) => {
+                        const checkKey = `${day.id}-${i}`;
+                        const isChecked = checkedItems[checkKey];
+                        // Add an [x] if checked, [ ] if not
+                        textContent += `[${isChecked ? 'x' : ' '}] ${ing}\n`;
+                    });
+                    textContent += "\n";
+                });
+
+                // Create a temporary link to download the file
+                const element = document.createElement("a");
+                const file = new Blob([textContent], {type: 'text/plain'});
+                element.href = URL.createObjectURL(file);
+                element.download = "grocery_list.txt";
+                document.body.appendChild(element); // Required for Firefox
+                element.click();
+                document.body.removeChild(element);
+            };
+
+            return (
+                <div className="max-w-3xl mx-auto p-4 md:p-8">
+                    <header className="text-center mb-8">
+                        <h1 className="text-4xl font-bold text-gray-800 mb-2">My Grocery Planner</h1>
+                        <p className="text-gray-600">Generate, check off items, and save your list.</p>
+                    </header>
+
+                    <div className="flex flex-wrap justify-center gap-4 mb-8">
+                        <button 
+                            onClick={handleGenerate}
+                            className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-full shadow-lg transition transform hover:scale-105 flex items-center gap-2"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
+                            Generate New Menu
+                        </button>
+
+                        {schedule.length > 0 && (
+                            <button 
+                                onClick={handleDownload}
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-6 rounded-full shadow-lg transition transform hover:scale-105 flex items-center gap-2"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                Download List
+                            </button>
+                        )}
+                    </div>
+
+                    <div className="space-y-6">
+                        {schedule.length === 0 && (
+                            <div className="text-center text-gray-400 py-12 border-2 border-dashed border-gray-300 rounded-xl">
+                                No menu generated yet. Click "Generate New Menu" to start.
+                            </div>
+                        )}
+
+                        {schedule.map((day, index) => {
+                            const ingredientList = day.ingredients
+                                ? day.ingredients.split(',').map(i => i.trim().replace(/\.$/, ''))
+                                : [];
+
+                            return (
+                                <div key={day.id} className="bg-white rounded-xl shadow-md overflow-hidden border border-gray-200">
+                                    <div className="bg-blue-50 p-4 border-b border-blue-100 flex justify-between items-center">
+                                        <h2 className="text-xl font-bold text-gray-800">Day {index + 1}: {day.meal}</h2>
+                                    </div>
+                                    <div className="p-4">
+                                        <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Shopping List:</h3>
+                                        <ul className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                            {ingredientList.map((ing, i) => {
+                                                const checkKey = `${day.id}-${i}`;
+                                                const isChecked = checkedItems[checkKey];
+                                                
+                                                return (
+                                                    <li 
+                                                        key={i} 
+                                                        className={`flex items-start gap-3 p-2 rounded transition cursor-pointer ${isChecked ? 'bg-gray-50' : 'hover:bg-gray-50'}`}
+                                                        onClick={() => toggleCheck(day.id, i)}
+                                                    >
+                                                        <div className={`mt-1 w-5 h-5 rounded border flex items-center justify-center flex-shrink-0 ${isChecked ? 'bg-green-500 border-green-500' : 'border-gray-300 bg-white'}`}>
+                                                            {isChecked && (
+                                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-white" viewBox="0 0 20 20" fill="currentColor">
+                                                                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                                                </svg>
+                                                            )}
+                                                        </div>
+                                                        <span className={`text-gray-700 ${isChecked ? 'line-through text-gray-400' : ''}`}>
+                                                            {ing}
+                                                        </span>
+                                                    </li>
+                                                )
+                                            })}
+                                        </ul>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+
+    </script>
+</body>
+</html>
